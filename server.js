@@ -4,15 +4,13 @@
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
-require('dotenv').config(); // 用于从 .env 文件加载环境变量
+require('dotenv').config(); 
 
 // 2. 创建 Express 应用 (Create Express app)
 const app = express();
-const PORT = process.env.PORT || 3000; // 服务器运行的端口 (Port for the server)
+const PORT = process.env.PORT || 3000;
 
 // --- 安全措施 (Security Measure) ---
-// 请在这里填入你的API密钥。
-// 最佳实践是稍后在服务器上创建一个名为 .env 的文件，并在其中写入 API_KEY=你的密钥
 const API_KEY = process.env.API_KEY || 'AIzaSyCcUxkWBvKO7EbMOhq8bc6gCakjBSmhIgs'; 
 
 if (!API_KEY || API_KEY.includes('AIzaSyCcUxkWBvKO7EbMOhq8bc6gCakjBSmhIgs')) {
@@ -20,8 +18,7 @@ if (!API_KEY || API_KEY.includes('AIzaSyCcUxkWBvKO7EbMOhq8bc6gCakjBSmhIgs')) {
 }
 
 // 3. 使用中间件 (Use middleware)
-app.use(express.json({ limit: '10mb' })); // 解析JSON格式的请求体 (Parse JSON request bodies)
-app.use(express.static(path.join(__dirname, 'public'))); // 托管 public 文件夹中的静态文件 (Serve static files from 'public' folder)
+app.use(express.json({ limit: '10mb' }));
 
 // 4. 创建 API 代理路由 (Create API proxy route)
 app.post('/api/generateContent/:model(*)', async (req, res) => {
@@ -51,11 +48,28 @@ app.post('/api/generateContent/:model(*)', async (req, res) => {
 });
 
 // 捕获所有其他路由并返回前端页面 (Catch-all route to serve the frontend)
+// 这是关键的修正：直接从主目录提供 index.html
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // 5. 启动服务器 (Start the server)
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`服务器正在 http://0.0.0.0:${PORT} 上运行`);
 });
+```
+
+#### **第 2 步：在服务器上同步并重启服务**
+
+1.  回到你的 **EC2 Instance Connect 网页终端**。
+2.  你的服务应该还在运行。请按键盘上的 **`Ctrl + C`** 来**停止当前的服务**。
+3.  你会回到命令提示符 `ubuntu@...:~/my-fashion-app$`。
+4.  输入以下命令，从 GitHub 拉取你刚刚做的代码修改：
+    ```bash
+    git pull
+    ```
+5.  拉取成功后，重新启动服务：
+    ```bash
+    npm start
+    
+
