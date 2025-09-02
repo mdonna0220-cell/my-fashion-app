@@ -41,18 +41,4 @@ app.get('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`服务器正在 http://0.0.0.0:${PORT} 上运行`);
 });
-```
-
-#### **第 2 步：在服务器上同步并重启**
-
-1.  回到你的 **EC2 Instance Connect 网页终端**。
-2.  确保服务已停止（如果你看到的是命令提示符 `...my-fashion-app$`，就说明已停止）。
-3.  输入命令从 GitHub 拉取你刚刚修正的代码：
-    ```bash
-    git pull
-    ```
-4.  **最后一次，重新启动服务**：
-    ```bash
-    npm start
-    
 
