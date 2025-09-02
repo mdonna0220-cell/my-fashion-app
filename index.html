@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 服饰设计助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; }
+        .container { max-width: 960px; position: relative; }
+        .btn { transition: all 0.2s ease; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn:disabled { background-color: #9ca3af; cursor: not-allowed; transform: none; box-shadow: none;}
+        .btn-primary { background-color: #4f46e5; } .btn-primary:hover:enabled { background-color: #4338ca; }
+        .btn-secondary { background-color: #6b7280; } .btn-secondary:hover:enabled { background-color: #4b5563; }
+        .btn-tertiary { background-color: #dc2626; } .btn-tertiary:hover:enabled { background-color: #b91c1c; }
+        .btn-quaternary { background-color: #f97316; } .btn-quaternary:hover:enabled { background-color: #ea580c; }
+        .btn-quintenary { background-color: #10b981; } .btn-quintenary:hover:enabled { background-color: #059669; }
+        .btn-sidenary { background-color: #8b5cf6; } .btn-sidenary:hover:enabled { background-color: #7c3aed; }
+        .btn-heptanary { background-color: #0891b2; } .btn-heptanary:hover:enabled { background-color: #0e7490; }
+
+        #loading-message { color: #4f46e5; }
+        #image-container img, #detail-image-container img, #uploaded-image-preview, #i2i-generated-image {
+            max-width: 100%; height: auto; border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        #story-container { min-height: 100px; overflow-y: auto; }
+        .modal { background-color: rgba(0, 0, 0, 0.5); }
+        .modal-content { max-width: 80%; max-height: 80%; overflow-y: auto; }
+        .vocab-button { background-color: #e5e7eb; color: #1f2937; transition: background-color 0.2s ease, transform 0.2s ease; }
+        .vocab-button:hover { background-color: #d1d5db; }
+        .vocab-button.clicked { background-color: #8b5cf6; color: white; transform: scale(1.05); }
+        #notebook-toggle, #encyclopedia-toggle { position: absolute; top: 1rem; z-index: 20; cursor: pointer; }
+        #notebook-toggle { right: 1rem; }
+        #encyclopedia-toggle { left: 1rem; }
+        #notebook-panel {
+            position: absolute; top: 4rem; right: 1rem; width: 300px; background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px); border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 1rem; z-index: 50; transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .upload-zone { border: 2px dashed #cbd5e1; transition: all 0.2s ease; }
+        .upload-zone:hover { border-color: #8b5cf6; background-color: #f5f3ff; }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="container mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-2xl space-y-8">
+        
+        <!-- PAGE 1: Main App -->
+        <div id="main-page">
+            <header class="text-center">
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800">AI 服饰设计助手 👕</h1>
+                <p class="mt-2 text-gray-600">输入你的设计想法，生成专业的设计图和说明。</p>
+                <p class="mt-2 text-sm text-gray-500">今日剩余次数: <span id="api-usage-counter">...</span></p>
+            </header>
+            
+            <section class="space-y-4">
+                <div>
+                    <label for="prompt-input" class="block text-sm font-medium text-gray-700">
+                        输入你的服饰设计想法：
+                    </label>
+                    <textarea id="prompt-input" rows="4" class="mt-1 block w-full rounded-lg border border-gray-300 shadow-sm p-3 focus:border-indigo-500 focus:ring-indigo-500 transition-colors" placeholder="例如: 一件赛博朋克风格的机能夹克，带有霓虹灯带和半透明材质"></textarea>
+                </div>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <button id="refine-btn" class="w-full px-4 py-3 border border-transparent rounded-full shadow-lg text-base font-bold text-white btn btn-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                        <span>灵感词库 📚</span>
+                    </button>
+                    <button id="translate-btn" class="w-full px-4 py-3 border border-transparent rounded-full shadow-lg text-base font-bold text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" disabled>
+                        <span>优化提示词 ✨</span>
+                    </button>
+                    <button id="generate-btn" class="w-full px-4 py-3 border border-transparent rounded-full shadow-lg text-base font-bold text-white btn btn-quaternary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500" disabled>
+                        <span>生成设计图 ✨</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <div id="loading-container" class="text-center" style="display: none;">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-gray-400 border-t-indigo-600"></div>
+                    <p id="loading-message" class="mt-2 text-sm font-medium">正在加载...</p>
+                </div>
+                
+                <div id="result-container" class="space-y-4">
+                    <div id="english-prompt-box" class="p-4 bg-gray-50 border border-dashed border-gray-300 rounded-lg hidden">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-700">优化后的英文提示词：</p>
+                                <p id="english-prompt" class="mt-1 text-gray-900 break-words pr-4"></p>
+                            </div>
+                            <button id="copy-prompt-btn" class="ml-4 flex-shrink-0 px-4 py-1.5 text-sm font-semibold text-white rounded-full btn btn-secondary">复制</button>
+                        </div>
+                    </div>
+
+                    <div id="image-container" class="w-full h-auto flex justify-center items-center">
+                        <img id="generated-image" class="hidden" alt="Generated AI Image">
+                    </div>
+
+                    <div id="story-buttons-container" class="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-2 mt-4 hidden">
+                        <button id="story-btn" class="w-full sm:w-auto px-6 py-3 border border-transparent rounded-full shadow-lg text-base sm:text-lg font-bold text-white btn-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" disabled>
+                            <span>生成设计说明 ✨</span>
+                        </button>
+                    </div>
+
+                    <div id="story-container" class="p-4 bg-gray-50 border border-dashed border-gray-300 rounded-lg hidden">
+                        <p class="text-sm font-medium text-gray-700">设计说明：</p>
+                        <p id="story-text" class="mt-1 text-gray-900 leading-relaxed whitespace-pre-wrap"></p>
+                    </div>
+
+                    <div id="error-message" class="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg hidden">
+                        <p id="error-text" class="text-sm font-medium"></p>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- MODALS -->
+        <div id="vocab-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-2xl bg-white space-y-6">
+                <div class="flex justify-between items-center pb-3">
+                    <h3 class="text-2xl font-bold text-gray-900">服饰设计灵感词库</h3>
+                    <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                </div>
+                <div id="category-container" class="space-y-4"> <h4 class="text-lg font-semibold text-gray-700 cursor-pointer hover:text-indigo-600 transition-colors" data-target="category-buttons">款式类别 (Category)</h4> <div id="category-buttons" class="flex flex-wrap gap-2"></div> </div>
+                <div id="style-container" class="space-y-4"> <h4 class="text-lg font-semibold text-gray-700 cursor-pointer hover:text-indigo-600 transition-colors" data-target="style-buttons">设计风格 (Style)</h4> <div id="style-buttons" class="flex flex-wrap gap-2"></div> </div>
+                <div id="fabric-container" class="space-y-4"> <h4 class="text-lg font-semibold text-gray-700 cursor-pointer hover:text-indigo-600 transition-colors" data-target="fabric-buttons">面料材质 (Fabric)</h4> <div id="fabric-buttons" class="flex flex-wrap gap-2"></div> </div>
+                <div id="pattern-container" class="space-y-4"> <h4 class="text-lg font-semibold text-gray-700 cursor-pointer hover:text-indigo-600 transition-colors" data-target="pattern-buttons">图案印花 (Pattern)</h4> <div id="pattern-buttons" class="flex flex-wrap gap-2"></div> </div>
+                <div id="details-container" class="space-y-4"> <h4 class="text-lg font-semibold text-gray-700 cursor-pointer hover:text-indigo-600 transition-colors" data-target="details-buttons">细节剪裁 (Details/Cut)</h4> <div id="details-buttons" class="flex flex-wrap gap-2"></div> </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // API URLs now point to our own server's proxy routes
+        const GEMINI_API_URL = `/api/generateContent/gemini-2.5-flash-preview-05-20`;
+        const IMAGE_GENERATION_API_URL = `/api/generateContent/gemini-2.5-flash-image-preview`;
+        
+        // Daily API limit settings
+        const DAILY_API_LIMIT = 2;
+        const USAGE_STORAGE_KEY = 'fashionApiUsage';
+
+        // --- DOM Element Selection ---
+        const mainPage = document.getElementById('main-page');
+        const promptInput = document.getElementById('prompt-input');
+        const translateBtn = document.getElementById('translate-btn');
+        const refineBtn = document.getElementById('refine-btn');
+        const generateBtn = document.getElementById('generate-btn');
+        const storyBtn = document.getElementById('story-btn');
+        const loadingContainer = document.getElementById('loading-container');
+        const loadingMessage = document.getElementById('loading-message');
+        const englishPromptBox = document.getElementById('english-prompt-box');
+        const englishPrompt = document.getElementById('english-prompt');
+        const copyPromptBtn = document.getElementById('copy-prompt-btn');
+        const imageContainer = document.getElementById('image-container');
+        const generatedImage = document.getElementById('generated-image');
+        const storyContainer = document.getElementById('story-container');
+        const storyButtonsContainer = document.getElementById('story-buttons-container');
+        const storyText = document.getElementById('story-text');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const apiUsageCounter = document.getElementById('api-usage-counter');
+        
+        // --- Modal Elements ---
+        const vocabModal = document.getElementById('vocab-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        
+        // --- Vocab Library Elements ---
+        const categoryButtonsContainer = document.getElementById('category-buttons');
+        const styleButtonsContainer = document.getElementById('style-buttons');
+        const fabricButtonsContainer = document.getElementById('fabric-buttons');
+        const patternButtonsContainer = document.getElementById('pattern-buttons');
+        const detailsButtonsContainer = document.getElementById('details-buttons');
+
+        // --- Vocab Data for Fashion ---
+        const vocabData = {
+            '款式类别': { '连衣裙': 'dress', 'T恤': 'T-shirt', '连帽衫': 'hoodie', '夹克': 'jacket', '风衣': 'trench coat', '西装外套': 'blazer', '牛仔裤': 'jeans', '半身裙': 'skirt', '运动裤': 'sweatpants', '衬衫': 'shirt' },
+            '设计风格': { '赛博朋克': 'cyberpunk', '复古': 'vintage', '极简主义': 'minimalist', '街头潮流': 'streetwear', '哥特': 'gothic', '学院风': 'preppy', '波西米亚': 'bohemian', '未来主义': 'futuristic', '机能风': 'techwear' },
+            '面料材质': { '棉': 'cotton', '丝绸': 'silk', '皮革': 'leather', '牛仔布': 'denim', '羊毛': 'wool', '天鹅绒': 'velvet', '雪纺': 'chiffon', 'PVC': 'PVC', '半透明': 'translucent material', '金属质感': 'metallic fabric' },
+            '图案印花': { '纯色': 'solid color', '条纹': 'stripes', '格纹': 'plaid', '波点': 'polka dot', '花卉': 'floral print', '动物纹': 'animal print', '迷彩': 'camouflage', '几何图案': 'geometric pattern', '扎染': 'tie-dye' },
+            '细节剪裁': { '不对称设计': 'asymmetrical design', '廓形剪裁': 'oversized silhouette', '收腰设计': 'cinched waist', '泡泡袖': 'puffy sleeves', '流苏': 'fringes', '荷叶边': 'ruffles', '镂空': 'cut-outs', '拼接': 'patchwork', '拉链': 'zippers', '飘带': 'ribbons' }
+        };
+
+        // --- API Usage Counter Logic ---
+        function getApiUsage() {
+            const usage = localStorage.getItem(USAGE_STORAGE_KEY);
+            if (!usage) {
+                return { date: new Date().toISOString().split('T')[0], count: 0 };
+            }
+            return JSON.parse(usage);
+        }
+
+        function updateUsageCounterUI() {
+            const usage = getApiUsage();
+            const today = new Date().toISOString().split('T')[0];
+            let remaining;
+
+            if (usage.date === today) {
+                remaining = DAILY_API_LIMIT - usage.count;
+            } else {
+                remaining = DAILY_API_LIMIT;
+            }
+            
+            const displayCount = remaining > 0 ? remaining : 0;
+            apiUsageCounter.textContent = displayCount;
+
+            if (displayCount <= 0) {
+                apiUsageCounter.classList.add('text-red-600', 'font-bold');
+            } else {
+                apiUsageCounter.classList.remove('text-red-600', 'font-bold');
+            }
+        }
+
+        function checkApiLimit() {
+            let usage = getApiUsage();
+            const today = new Date().toISOString().split('T')[0];
+            
+            if (usage.date !== today) {
+                usage = { date: today, count: 0 };
+            }
+            
+            if (usage.count >= DAILY_API_LIMIT) {
+                showErrorMessage(`今日使用次数已达上限 (${DAILY_API_LIMIT}次)。请明天再试。`);
+                return false;
+            }
+            return true;
+        }
+
+        function incrementApiUsage() {
+            let usage = getApiUsage();
+            const today = new Date().toISOString().split('T')[0];
+
+            if (usage.date === today) {
+                usage.count += 1;
+            } else {
+                usage = { date: today, count: 1 };
+            }
+            localStorage.setItem(USAGE_STORAGE_KEY, JSON.stringify(usage));
+            updateUsageCounterUI();
+        }
+
+        // --- Vocabulary Modal Logic ---
+        function createVocabButtons() {
+            const containers = {
+                '款式类别': categoryButtonsContainer, '设计风格': styleButtonsContainer,
+                '面料材质': fabricButtonsContainer, '图案印花': patternButtonsContainer, '细节剪裁': detailsButtonsContainer
+            };
+            for (const category in vocabData) {
+                const container = containers[category];
+                const terms = vocabData[category];
+                for (const term in terms) {
+                    const button = document.createElement('button');
+                    button.textContent = term;
+                    button.className = 'px-4 py-2 text-sm font-medium rounded-full vocab-button';
+                    button.onclick = () => {
+                        button.classList.add('clicked');
+                        setTimeout(() => button.classList.remove('clicked'), 200);
+                        let currentText = promptInput.value.trim();
+                        if (currentText) {
+                            promptInput.value += `, ${term}`;
+                        } else {
+                            promptInput.value = term;
+                        }
+                        promptInput.dispatchEvent(new Event('input'));
+                    };
+                    container.appendChild(button);
+                }
+            }
+        }
+        
+        function setupVocabToggles() {
+            document.querySelectorAll('#vocab-modal h4').forEach(title => {
+                title.addEventListener('click', (e) => {
+                    const targetId = e.target.dataset.target;
+                    document.getElementById(targetId).classList.toggle('hidden');
+                });
+            });
+        }
+
+        // --- Core Application Logic ---
+        function setLoadingState(message, showLoading = true, keepImageVisible = false) {
+            loadingMessage.textContent = message;
+            loadingContainer.style.display = showLoading ? 'block' : 'none';
+            [translateBtn, refineBtn, generateBtn, storyBtn].forEach(btn => btn.disabled = showLoading);
+
+            if (showLoading && !keepImageVisible) {
+                englishPromptBox.classList.add('hidden');
+                generatedImage.classList.add('hidden');
+                storyContainer.classList.add('hidden');
+            }
+            errorMessage.classList.add('hidden');
+        }
+
+        function showErrorMessage(message) {
+            setLoadingState('', false, true);
+            errorMessage.classList.remove('hidden');
+            errorText.textContent = message;
+        }
+
+        async function fetchWithProxy(url, options) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || `服务器错误: ${response.status}`);
+                }
+                const responseText = await response.text();
+                return responseText ? JSON.parse(responseText) : null;
+            } catch (error) {
+                console.error("Fetch error:", error);
+                throw error;
+            }
+        }
+        
+        promptInput.addEventListener('input', () => {
+            const hasText = promptInput.value.trim().length > 0;
+            translateBtn.disabled = !hasText;
+            generateBtn.disabled = !hasText;
+        });
+
+        async function getEnglishPrompt(showPromptBox = true) {
+            const chinesePrompt = promptInput.value.trim();
+            if (!chinesePrompt) { 
+                showErrorMessage("请输入你的服饰设计想法。"); 
+                return null; 
+            }
+            const payload = {
+                contents: [{
+                    parts: [{ text: `Translate the following Chinese fashion design concept into a vivid, detailed English prompt for an AI image generator. The prompt should be a flowing sentence or two, focusing on key visual elements like garment type, style, fabric, pattern, and specific details. Chinese text: "${chinesePrompt}"` }]
+                }]
+            };
+            const response = await fetchWithProxy(GEMINI_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const englishText = response.candidates[0].content.parts[0].text.trim();
+            if (showPromptBox) {
+                englishPrompt.textContent = englishText;
+                englishPromptBox.classList.remove('hidden');
+            }
+            return englishText;
+        }
+
+        translateBtn.addEventListener('click', async () => {
+            if (!checkApiLimit()) return;
+            setLoadingState('正在优化英文提示词...');
+            try {
+                await getEnglishPrompt(true);
+                incrementApiUsage();
+            } catch (error) {
+                showErrorMessage(`优化提示词失败：${error.message}`);
+            }
+            setLoadingState('', false);
+        });
+        
+        refineBtn.addEventListener('click', () => { vocabModal.classList.remove('hidden'); });
+        closeModalBtn.addEventListener('click', () => { vocabModal.classList.add('hidden'); });
+
+        generateBtn.addEventListener('click', async () => {
+            if (!checkApiLimit()) return;
+            setLoadingState('AI 服装设计师正在创作中，请耐心等待...');
+            storyContainer.classList.add('hidden');
+            englishPromptBox.classList.add('hidden');
+            storyButtonsContainer.classList.add('hidden');
+            storyBtn.disabled = true;
+
+            try {
+                const englishText = await getEnglishPrompt(false);
+                if (!englishText) {
+                    setLoadingState('', false);
+                    return;
+                }
+                
+                const payload = {
+                    contents: [{ parts: [{ text: englishText }] }],
+                    generationConfig: { responseModalities: ["IMAGE"] },
+                };
+                const response = await fetchWithProxy(IMAGE_GENERATION_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const base64Data = response?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                
+                if (base64Data) {
+                    generatedImage.src = `data:image/png;base64,${base64Data}`;
+                    generatedImage.classList.remove('hidden');
+                    storyBtn.disabled = false;
+                    storyButtonsContainer.classList.remove('hidden');
+                    incrementApiUsage(); // Increment on successful image generation
+                } else { 
+                    showErrorMessage("图片生成失败。请检查提示词或稍后再试。"); 
+                }
+            } catch (error) { 
+                showErrorMessage(`图片生成失败：${error.message}`); 
+            } finally {
+                setLoadingState('', false);
+            }
+        });
+
+        storyBtn.addEventListener('click', async () => {
+            if (!checkApiLimit()) return;
+            setLoadingState('正在生成设计说明...', true, true);
+            const englishPromptForStory = englishPrompt.textContent.trim() || await getEnglishPrompt(false);
+            if (!englishPromptForStory) {
+                setLoadingState('', false, true);
+                return;
+            }
+
+            const combinedPrompt = `Based on the following English prompt for an AI image, write a short design description. Describe the design inspiration, garment type, fabric, and artistic style. Respond ONLY in Chinese. English prompt: "${englishPromptForStory}"`;
+            const payload = { contents: [{ parts: [{ text: combinedPrompt }] }] };
+
+            try {
+                const response = await fetchWithProxy(GEMINI_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const story = response.candidates[0].content.parts[0].text;
+                storyText.textContent = story;
+                storyContainer.classList.remove('hidden');
+                incrementApiUsage();
+            } catch (error) {
+                showErrorMessage(`设计说明创作失败：${error.message}`);
+            } finally {
+                setLoadingState('', false, true);
+            }
+        });
+
+        copyPromptBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(englishPrompt.textContent).then(() => {
+                const originalText = copyPromptBtn.textContent;
+                copyPromptBtn.textContent = '已复制!';
+                setTimeout(() => { copyPromptBtn.textContent = originalText; }, 2000);
+            }).catch(err => showErrorMessage('复制失败，请手动复制。'));
+        });
+
+        // --- Initial setup on page load ---
+        window.onload = () => {
+            updateUsageCounterUI();
+            createVocabButtons();
+            setupVocabToggles();
+        };
+
+    </script>
+</body>
+</html>
