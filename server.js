@@ -15,6 +15,8 @@ const API_KEY = process.env.API_KEY || 'AIzaSyCcUxkWBvKO7EbMOhq8bc6gCakjBSmhIgs'
 
 // 3. 使用中间件
 app.use(express.json({ limit: '10mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
+
 
 // 4. API 代理路由
 app.post('/api/generateContent/:model(*)', async (req, res) => {
@@ -30,10 +32,9 @@ app.post('/api/generateContent/:model(*)', async (req, res) => {
     }
 });
 
-// 5. 托管前端文件 (这是关键修正)
-// 直接从主目录提供 index.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+// 5. 托管前端文件
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // 6. 启动服务器
@@ -45,13 +46,12 @@ app.listen(PORT, '0.0.0.0', () => {
 #### **第 2 步：在服务器上同步并重启**
 
 1.  回到你的 **EC2 Instance Connect 网页终端**。
-2.  如果服务还在运行，按 **`Ctrl + C`** 停止它。
-3.  确保你还在 `my-fashion-app` 文件夹里（如果不是，请输入 `cd my-fashion-app`）。
-4.  输入命令从 GitHub 拉取最新的代码：
+2.  确保服务已停止（如果你看到的是命令提示符 `...my-fashion-app$`，就说明已停止）。
+3.  输入命令从 GitHub 拉取你刚刚修正的代码：
     ```bash
     git pull
     ```
-5.  **重新启动服务**：
+4.  **最后一次，重新启动服务**：
     ```bash
     npm start
     
