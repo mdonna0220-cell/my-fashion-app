@@ -1,30 +1,3 @@
-// ============== START: 终极错误捕获代码 ==============
-// 请将这段代码完整复制到 server.js 文件的最顶部
-
-process.on('uncaughtException', (err, origin) => {
-  console.log('\n\n!!!!!!!!!! 未捕获的致命异常 !!!!!!!!!!\n');
-  console.log('这是一个非常严重的错误，导致了程序崩溃。');
-  console.log('错误详情:');
-  console.error(err);
-  console.log('\n错误来源:');
-  console.error(origin);
-  console.log('\n!!!!!!!!!! 异常信息结束 !!!!!!!!!!\n\n');
-  process.exit(1); // 记录错误后，强制退出
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.log('\n\n!!!!!!!!!! 未处理的 PROMISE REJECTION !!!!!!!!!!\n');
-  console.log('这是一个异步操作错误，可能导致程序不稳定或崩溃。');
-  console.log('原因:');
-  console.error(reason);
-  console.log('\nPromise 对象:');
-  console.error(promise);
-  console.log('\n!!!!!!!!!! REJECTION 信息结束 !!!!!!!!!!\n\n');
-});
-
-
-
-
 // 1. 引入必要的库 (Import necessary libraries)
 const express = require('express');
 const axios = require('axios');
@@ -148,4 +121,3 @@ app.get('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`服务器正在 http://0.0.0.0:${PORT} 上运行`);
 });
-
